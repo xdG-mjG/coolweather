@@ -1,6 +1,7 @@
 package cn.edu.jssvc.guanxiaodong.coolweather;
 
 import android.app.ProgressDialog;
+import android.content.Intent;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
@@ -25,6 +26,7 @@ import java.util.List;
 import cn.edu.jssvc.guanxiaodong.coolweather.db.City;
 import cn.edu.jssvc.guanxiaodong.coolweather.db.County;
 import cn.edu.jssvc.guanxiaodong.coolweather.db.Province;
+import cn.edu.jssvc.guanxiaodong.coolweather.gson.Weather;
 import cn.edu.jssvc.guanxiaodong.coolweather.util.HttpUtil;
 import cn.edu.jssvc.guanxiaodong.coolweather.util.Utility;
 import okhttp3.Call;
@@ -58,7 +60,6 @@ public class ChooseAreaFragment extends Fragment {
         listView = (ListView) view.findViewById(R.id.list_view);
         adapter = new ArrayAdapter<>(getContext(),android.R.layout.simple_list_item_1,dataList);
         listView.setAdapter(adapter);
-        Log.d("ChooseAreaFragment.java","onCreateView");
         return view;
     }
 
@@ -71,11 +72,15 @@ public class ChooseAreaFragment extends Fragment {
                 if (currentLevel==LEVEL_PROVINCE){
                     selectedProvince=provinceList.get(position);
                     queryCities();
-                    Log.d("ChooseAreaFragment.java","10");
                 }else if (currentLevel==LEVEL_CITY){
                     selectedCity=cityList.get(position);
                     queryCounties();
-                    Log.d("ChooseAreaFragment.java","11");
+                }else if (currentLevel==LEVEL_COUNTY){
+                    String weatherId = countyList.get(position).getWeatherId();
+                    Intent intent = new Intent(getActivity(), WeatherActivity.class);
+                    intent.putExtra("weather_id",weatherId);
+                    startActivity(intent);
+                    getActivity().finish();
                 }
             }
         });
@@ -89,7 +94,6 @@ public class ChooseAreaFragment extends Fragment {
                 }
             }
         });
-        Log.d("ChooseAreaFragment.java","12");
         queryProvinces();
     }
 
@@ -97,9 +101,7 @@ public class ChooseAreaFragment extends Fragment {
         titleText.setText("中国");
         backButton.setVisibility(View.GONE);
         provinceList= DataSupport.findAll(Province.class);
-        Log.d("ChooseAreaFragment.java","queryProvinces");
         if (provinceList.size()>0){
-            Log.d("ChooseAreaFragment.java","sucessful");
             dataList.clear();
             for (Province province:provinceList){
                 dataList.add(province.getProvinceName());
@@ -108,21 +110,16 @@ public class ChooseAreaFragment extends Fragment {
             listView.setSelection(0);
             currentLevel=LEVEL_PROVINCE;
         }else{
-            Log.d("ChooseAreaFragment.java","sucessful1");
             String address = "http://guolin.tech/api/china";
             queryFromServer(address,"province");
-            Log.d("ChooseAreaFragment.java","queryProvinces1");
         }
     }
 
     private void queryFromServer(String address, final String type) {
-        Log.d("ChooseAreaFragment.java","queryFromServer1");
         showProgressDialog();
-        Log.d("ChooseAreaFragment.java","queryFromServer2");
         HttpUtil.sendOkHttpRequest(address, new Callback() {
             @Override
             public void onFailure(Call call, IOException e) {
-                Log.d("ChooseAreaFragment.java","queryFromServer5");
                 getActivity().runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
@@ -134,11 +131,9 @@ public class ChooseAreaFragment extends Fragment {
 
             @Override
             public void onResponse(Call call, Response response) throws IOException {
-                Log.d("ChooseAreaFragment.java","queryFromServer3");
                 String responseText = response.body().string();
                 boolean result = false;
                 if ("province".equals(type)){
-                    Log.d("ChooseAreaFragment.java","queryFromServer4");
                     result=Utility.handleProvinceResponse(responseText);
                 }else if ("city".equals(type)){
                     result=Utility.handleCityResponse(responseText,selectedProvince.getId());
@@ -163,54 +158,9 @@ public class ChooseAreaFragment extends Fragment {
                 }
             }
         });
-
-//        HttpUtil.sendOkHttpRequest(address, new Callback() {
-//            @Override
-//            public void onFailure(Call call, IOException e) {
-//                Log.d("ChooseAreaFragment.java","queryFromServer5");
-//                getActivity().runOnUiThread(new Runnable() {
-//                    @Override
-//                    public void run() {
-//                        closeProgressDialog();
-//                        Toast.makeText(getContext(),"加载失败",Toast.LENGTH_SHORT).show();
-//                    }
-//                });
-//            }
-//            @Override
-//            public void onResponse(Call call, Response response) throws IOException {
-//                Log.d("ChooseAreaFragment.java","queryFromServer3");
-//                String responseText = response.body().string();
-//                boolean result = false;
-//                if ("province".equals(type)){
-//                    Log.d("ChooseAreaFragment.java","queryFromServer4");
-//                    result=Utility.handleProvinceResponse(responseText);
-//                }else if ("city".equals(type)){
-//                    result=Utility.handleCityResponse(responseText,selectedProvince.getId());
-//                }else if ("county".equals(type)){
-//                    result=Utility.handleCountyResponse(responseText,selectedCity.getId());
-//                }
-//
-//                if (result){
-//                    getActivity().runOnUiThread(new Runnable() {
-//                        @Override
-//                        public void run() {
-//                            closeProgressDialog();
-//                            if ("province".equals(type)){
-//                                queryProvinces();
-//                            }else if("city".equals(type)){
-//                                queryCities();
-//                            }else if ("county".equals(type)){
-//                                queryCounties();
-//                            }
-//                        }
-//                    });
-//                }
-//            }
-//        });
     }
 
     private void queryCities() {
-        Log.d("ChooseAreaFragment.java","1");
         titleText.setText(selectedProvince.getProvinceName());
         backButton.setVisibility(View.VISIBLE);
         cityList = DataSupport.where("provinceid = ?",String.valueOf(selectedProvince.getId())).find(City.class);
@@ -230,7 +180,6 @@ public class ChooseAreaFragment extends Fragment {
     }
 
     private void queryCounties(){
-        Log.d("ChooseAreaFragment.java","queryCounties");
         titleText.setText(selectedCity.getCityName());
         backButton.setVisibility(View.VISIBLE);
         countyList = DataSupport.where("cityid = ?",String.valueOf(selectedCity.getId())).find(County.class);
@@ -247,74 +196,19 @@ public class ChooseAreaFragment extends Fragment {
             int cityCode=selectedCity.getCityCode();
             String address = "http://guolin.tech/api/china/"+provinceCode+"/"+cityCode;
             queryFromServer(address,"county");
-            Log.d("ChooseAreaFragment.java","queryCounties");
         }
     }
-
-//    private void queryFromServer(String address, final String type) {
-//        Log.d("ChooseAreaFragment.java","queryFromServer1");
-//        showProgressDialog();
-//        Log.d("ChooseAreaFragment.java","queryFromServer2");
-//        HttpUtil.sendOkHttpRequest(address, new Callback() {
-//
-//            @Override
-//            public void onFailure(Call call, IOException e) {
-//                Log.d("ChooseAreaFragment.java","queryFromServer5");
-//                getActivity().runOnUiThread(new Runnable() {
-//                    @Override
-//                    public void run() {
-//                        closeProgressDialog();
-//                        Toast.makeText(getContext(),"加载失败",Toast.LENGTH_SHORT).show();
-//                    }
-//                });
-//            }
-//            @Override
-//            public void onResponse(Call call, Response response) throws IOException {
-//                Log.d("ChooseAreaFragment.java","queryFromServer3");
-//                String responseText = response.body().string();
-//                boolean result = false;
-//                if ("province".equals(type)){
-//                    Log.d("ChooseAreaFragment.java","queryFromServer4");
-//                    result=Utility.handleProvinceResponse(responseText);
-//                }else if ("city".equals(type)){
-//                    result=Utility.handleCityResponse(responseText,selectedProvince.getId());
-//                }else if ("county".equals(type)){
-//                    result=Utility.handleCountyResponse(responseText,selectedCity.getId());
-//                }
-//                if (result){
-//                    getActivity().runOnUiThread(new Runnable() {
-//                        @Override
-//                        public void run() {
-//                            closeProgressDialog();
-//                            if ("province".equals(type)){
-//                                queryProvinces();
-//                            }else if("city".equals(type)){
-//                                queryCities();
-//                            }else if ("county".equals(type)){
-//                                queryCounties();
-//                            }
-//                        }
-//                    });
-//                }
-//            }
-//        });
-//
-//
-//    }
 
     private void showProgressDialog(){
         if (progressDialog==null){
             progressDialog=new ProgressDialog(getActivity());
              progressDialog.setMessage("正在加载...");
              progressDialog.setCanceledOnTouchOutside(false);
-             Log.d("ChooseAreaFragment.java","showProgressDialog");
         }
         progressDialog.show();
-        Log.d("ChooseAreaFragment.java","showProgressDialog1");
     }
 
     private void closeProgressDialog(){
-        Log.d("ChooseAreaFragment.java","3");
         if (progressDialog!=null){
             progressDialog.dismiss();
         }
